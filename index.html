@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>口语一键练</title>
+  <title>听力一键练</title>
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
@@ -24,6 +24,7 @@
       padding: 18px; text-align: center; min-height: 100px;
     }
     .q { font-size: 1.15rem; line-height: 1.45; margin: 0; }
+    .q.hide-en { letter-spacing: 0.02em; }
     .meta { color: #8fa3bf; font-size: 0.85rem; margin-bottom: 8px; }
     #mic {
       width: 180px; height: 180px; border-radius: 50%; border: none;
@@ -49,6 +50,7 @@
       background: #334155; color: #fff; font-weight: 700; font-size: 16px;
       touch-action: manipulation;
     }
+    #replay { background: #0d9488; }
     .toast {
       position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
       background: #111; padding: 12px 16px; border-radius: 10px; display: none;
@@ -56,27 +58,33 @@
     }
     .toast.show { display: block; }
     #heard { color: #93c5fd; font-size: .9rem; min-height: 1.2em; text-align: center; max-width: 360px; }
+    .toggle {
+      display: flex; align-items: center; gap: 8px; color: #9db0cc; font-size: 0.88rem;
+    }
+    .toggle input { width: 18px; height: 18px; }
   </style>
 </head>
 <body>
-  <h1>口语一键练</h1>
-  <p class="hint">选场景会自动记住，下次打开还在<br>点大圆按钮说话 → 说完自动打分<br>请用手机 <b>Chrome</b> 打开并允许麦克风</p>
+  <h1>听力一键练</h1>
+  <p class="hint">先听老师说（不看英文），听懂后再用英语回答<br>点「再听一遍」可重放 · 用手机 <b>Chrome</b></p>
   <select id="scene">
+    <option value="askTeacher">向老师提问</option>
     <option value="daily">日常聊天</option>
     <option value="interview">求职面试</option>
     <option value="restaurant">餐厅</option>
     <option value="airport">机场</option>
     <option value="networking">商务寒暄</option>
   </select>
+  <label class="toggle"><input type="checkbox" id="showEn" /> 显示英文原文（默认关，练听力）</label>
   <div class="row">
     <button type="button" id="start">开始</button>
-    <button type="button" id="replay">再听问题</button>
+    <button type="button" id="replay">再听一遍</button>
   </div>
   <div class="qbox">
     <div class="meta" id="meta">先点「开始」</div>
-    <p class="q" id="q">准备好后点开始</p>
+    <p class="q hide-en" id="q">点开始后会自动朗读，请仔细听</p>
   </div>
-  <button type="button" id="mic" disabled>按住说话<br>或点一下</button>
+  <button type="button" id="mic" disabled>点一下回答<br>用英语说</button>
   <div id="heard"></div>
   <div class="score" id="scoreBox">
     <div class="big" id="score">—</div>
@@ -86,52 +94,66 @@
 
 <script>
 const BANK = {
+  askTeacher: [
+    { en: "What is your question about today's homework?", zh: "老师在问：作业相关的问题" },
+    { en: "Which part of the lesson was unclear for you?", zh: "老师在问：哪一段没听懂" },
+    { en: "Do you need more examples for this grammar?", zh: "老师在问：要不要多几个语法例子" },
+    { en: "When would you like to schedule office hours?", zh: "老师在问：什么时候来答疑" },
+    { en: "Can you explain what confused you in the reading?", zh: "老师在问：阅读哪里卡住了" },
+  ],
   daily: [
-    "How was your weekend?",
-    "What do you usually do after work?",
-    "What kind of food do you like?",
-    "Tell me about your hometown.",
-    "How do you usually learn English?",
+    { en: "How was your weekend?", zh: "对方在问：周末过得怎样" },
+    { en: "What do you usually do after work?", zh: "对方在问：下班后一般做什么" },
+    { en: "What kind of food do you like?", zh: "对方在问：喜欢什么食物" },
+    { en: "Tell me about your hometown.", zh: "对方在请你：介绍家乡" },
+    { en: "How do you usually learn English?", zh: "对方在问：平时怎么学英语" },
   ],
   interview: [
-    "Please introduce yourself.",
-    "Why do you want this job?",
-    "What are your strengths?",
-    "Tell me about a challenge you solved.",
-    "Do you have any questions for us?",
+    { en: "Please introduce yourself.", zh: "面试官：请自我介绍" },
+    { en: "Why do you want this job?", zh: "面试官：为什么想做这份工作" },
+    { en: "What are your strengths?", zh: "面试官：你的优势是什么" },
+    { en: "Tell me about a challenge you solved.", zh: "面试官：讲一个你解决过的难题" },
+    { en: "Do you have any questions for us?", zh: "面试官：你有什么想问我们的" },
   ],
   restaurant: [
-    "How many people in your party?",
-    "What would you like to drink?",
-    "Are you ready to order?",
-    "How is the food?",
-    "Would you like the check?",
+    { en: "How many people in your party?", zh: "服务员：几位用餐" },
+    { en: "What would you like to drink?", zh: "服务员：喝点什么" },
+    { en: "Are you ready to order?", zh: "服务员：可以点餐了吗" },
+    { en: "How is the food?", zh: "服务员：菜合口味吗" },
+    { en: "Would you like the check?", zh: "服务员：需要买单吗" },
   ],
   airport: [
-    "What is the purpose of your trip?",
-    "How long will you stay?",
-    "Do you have anything to declare?",
-    "Where is gate B12?",
-    "My flight is delayed. What should I do?",
+    { en: "What is the purpose of your trip?", zh: "海关：此行目的是什么" },
+    { en: "How long will you stay?", zh: "海关：打算停留多久" },
+    { en: "Do you have anything to declare?", zh: "海关：有没有要申报的" },
+    { en: "Where is gate B12?", zh: "你听到：有人在找 B12 登机口" },
+    { en: "My flight is delayed. What should I do?", zh: "你听到：航班延误，该怎么办" },
   ],
   networking: [
-    "What brings you to this event?",
-    "What does your company do?",
-    "Are you working on anything exciting?",
-    "Would you like a follow-up call next week?",
-    "How can I reach you?",
+    { en: "What brings you to this event?", zh: "对方在问：你怎么来参加这个活动" },
+    { en: "What does your company do?", zh: "对方在问：你们公司做什么" },
+    { en: "Are you working on anything exciting?", zh: "对方在问：最近在忙什么有趣的" },
+    { en: "Would you like a follow-up call next week?", zh: "对方在问：下周要不要再通电话" },
+    { en: "How can I reach you?", zh: "对方在问：怎么联系你" },
   ],
 };
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const sceneEl = document.getElementById("scene");
-const SAVE_KEY = "speakCoach.scene";
+const showEn = document.getElementById("showEn");
+const SAVE_KEY = "listenCoach.scene";
+const SHOW_KEY = "listenCoach.showEn";
 try {
   const saved = localStorage.getItem(SAVE_KEY);
   if (saved && BANK[saved]) sceneEl.value = saved;
+  showEn.checked = localStorage.getItem(SHOW_KEY) === "1";
 } catch (_) {}
 sceneEl.addEventListener("change", () => {
   try { localStorage.setItem(SAVE_KEY, sceneEl.value); } catch (_) {}
+});
+showEn.addEventListener("change", () => {
+  try { localStorage.setItem(SHOW_KEY, showEn.checked ? "1" : "0"); } catch (_) {}
+  if (active) renderQ();
 });
 
 const mic = document.getElementById("mic");
@@ -142,7 +164,7 @@ const scoreBox = document.getElementById("scoreBox");
 const scoreEl = document.getElementById("score");
 const fb = document.getElementById("fb");
 
-let qs = [], i = 0, active = false, rec = null, recording = false, pressTimer = null;
+let qs = [], i = 0, active = false, rec = null, recording = false;
 
 function toast(t) {
   const el = document.getElementById("toast");
@@ -155,16 +177,30 @@ function speak(t) {
   if (!speechSynthesis) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(t);
-  u.lang = "en-US"; u.rate = 0.92;
+  u.lang = "en-US"; u.rate = 0.88;
   speechSynthesis.speak(u);
 }
 
+function cur() { return qs[i]; }
+
+function renderQ() {
+  const item = cur();
+  if (!item) return;
+  meta.textContent = `第 ${i + 1} / ${qs.length} 题 · 先听再答`;
+  if (showEn.checked) {
+    qEl.classList.remove("hide-en");
+    qEl.textContent = item.en;
+  } else {
+    qEl.classList.add("hide-en");
+    qEl.textContent = "🎧 " + item.zh + "\n（英文已隐藏，点「再听一遍」）";
+  }
+}
+
 function showQ() {
-  meta.textContent = `第 ${i + 1} / ${qs.length} 题 · 说完自动评分`;
-  qEl.textContent = qs[i];
   heard.textContent = "";
   scoreBox.classList.remove("show");
-  speak(qs[i]);
+  renderQ();
+  speak(cur().en);
 }
 
 function start() {
@@ -178,7 +214,7 @@ function start() {
   i = 0; active = true;
   mic.disabled = false;
   showQ();
-  toast("可以点大圆按钮开始说了");
+  toast("先听完，再点大圆按钮用英语回答");
 }
 
 function grade(text) {
@@ -187,20 +223,21 @@ function grade(text) {
   let s = 40;
   if (words >= 5) s += 15;
   if (words >= 12) s += 15;
-  if (/\b(because|so|and|but|for example)\b/.test(t)) s += 15;
+  if (/\b(because|so|and|but|for example|could|would|please)\b/.test(t)) s += 15;
   if (words >= 8) s += 10;
   if (words < 3) s = Math.min(s, 35);
   s = Math.max(0, Math.min(100, s));
-  let tip = s >= 75 ? "不错，下题继续。" : s >= 50 ? "能听懂。试着多说一句 because…" : "太短了，至少说两整句。";
+  let tip = s >= 75 ? "听懂了，回答也不错。" : s >= 50 ? "基本听懂。试着多说一句。" : "太短了，至少说两整句。";
   return { s, tip };
 }
 
 function nextOrEnd(text) {
   const g = grade(text);
+  const item = cur();
   scoreEl.textContent = g.s;
-  fb.textContent = "听到：" + text + "\n" + g.tip;
+  fb.textContent = "听到你说：" + text + "\n原文：" + item.en + "\n" + g.tip;
   scoreBox.classList.add("show");
-  speak(g.s >= 60 ? "Good. Next question." : "Try to say a bit more next time.");
+  speak(g.s >= 60 ? "Good. Next." : "Try again next time.");
   i++;
   if (i >= qs.length) {
     active = false;
@@ -210,7 +247,7 @@ function nextOrEnd(text) {
     setTimeout(() => speak("Session finished. Great job."), 1200);
     return;
   }
-  setTimeout(showQ, 1600);
+  setTimeout(showQ, 1800);
 }
 
 async function micPermission() {
@@ -220,7 +257,7 @@ async function micPermission() {
     stream.getTracks().forEach(t => t.stop());
     return true;
   } catch {
-    toast("请允许麦克风，否则没法练口语");
+    toast("请允许麦克风，否则没法回答");
     return false;
   }
 }
@@ -230,6 +267,7 @@ async function startRec() {
   if (recording) { try { rec.stop(); } catch {} return; }
   if (!SR) { toast("请用 Chrome 打开本页"); return; }
   if (!(await micPermission())) return;
+  speechSynthesis.cancel();
 
   rec = new SR();
   rec.lang = "en-US";
@@ -255,13 +293,13 @@ async function startRec() {
   rec.onerror = (ev) => {
     recording = false;
     mic.classList.remove("rec");
-    mic.innerHTML = "点一下说话";
+    mic.innerHTML = "点一下回答<br>用英语说";
     toast(ev.error === "not-allowed" ? "麦克风被禁止" : "没听清，再点一次说");
   };
   rec.onend = () => {
     recording = false;
     mic.classList.remove("rec");
-    mic.innerHTML = "点一下说话";
+    mic.innerHTML = "点一下回答<br>用英语说";
     const text = (finalText || heard.textContent || "").trim();
     if (text) nextOrEnd(text);
     else toast("没识别到，请靠近麦克风再说一次");
@@ -274,9 +312,11 @@ function stopRec() {
 }
 
 document.getElementById("start").onclick = start;
-document.getElementById("replay").onclick = () => active && speak(qs[i]);
+document.getElementById("replay").onclick = () => {
+  if (!active) { toast("先点「开始」"); return; }
+  speak(cur().en);
+};
 mic.addEventListener("click", startRec);
-// press-and-hold also works
 mic.addEventListener("touchstart", (e) => {
   e.preventDefault();
   if (!recording) startRec();
@@ -287,7 +327,7 @@ mic.addEventListener("touchend", (e) => {
 });
 
 if (!SR) {
-  document.querySelector(".hint").innerHTML = "当前环境不能录音。请用手机 <b>Chrome</b> 打开本文件，或直接在 Grok Bot 里语音跟我练。";
+  document.querySelector(".hint").innerHTML = "当前环境不能录音。请用手机 <b>Chrome</b> 打开本页。";
 }
 </script>
 </body>
