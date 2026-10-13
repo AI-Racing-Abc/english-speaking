@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>口语一键练</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; min-height: 100vh; padding: 20px;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: flex-start; gap: 16px;
+      background: #0b1220; color: #eef3ff;
+      font-family: system-ui, sans-serif;
+    }
+    h1 { margin: 8px 0 0; font-size: 1.3rem; }
+    .hint { color: #9db0cc; text-align: center; font-size: 0.92rem; line-height: 1.4; max-width: 340px; }
+    select {
+      width: min(360px, 100%); padding: 14px; border-radius: 12px;
+      border: 1px solid #334155; background: #111827; color: #fff; font-size: 16px;
+    }
+    .qbox {
+      width: min(360px, 100%); background: #152238; border-radius: 16px;
+      padding: 18px; text-align: center; min-height: 100px;
+    }
+    .q { font-size: 1.15rem; line-height: 1.45; margin: 0; }
+    .meta { color: #8fa3bf; font-size: 0.85rem; margin-bottom: 8px; }
+    #mic {
+      width: 180px; height: 180px; border-radius: 50%; border: none;
+      background: #2563eb; color: #fff; font-size: 1.25rem; font-weight: 800;
+      touch-action: manipulation; box-shadow: 0 10px 30px rgba(37,99,235,.45);
+    }
+    #mic.rec { background: #dc2626; animation: pulse 1s infinite; }
+    #mic:disabled { opacity: .45; }
+    @keyframes pulse {
+      0%,100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .score {
+      width: min(360px, 100%); background: #122033; border-radius: 14px;
+      padding: 14px; text-align: center; display: none;
+    }
+    .score.show { display: block; }
+    .big { font-size: 2rem; font-weight: 800; color: #34d399; }
+    .fb { margin-top: 8px; color: #c9d7ea; font-size: 0.95rem; line-height: 1.4; white-space: pre-wrap; }
+    .row { display: flex; gap: 10px; width: min(360px, 100%); }
+    .row button {
+      flex: 1; min-height: 48px; border: none; border-radius: 12px;
+      background: #334155; color: #fff; font-weight: 700; font-size: 16px;
+      touch-action: manipulation;
+    }
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: #111; padding: 12px 16px; border-radius: 10px; display: none;
+      max-width: 90%; border: 1px solid #333; font-size: .9rem;
+    }
+    .toast.show { display: block; }
+    #heard { color: #93c5fd; font-size: .9rem; min-height: 1.2em; text-align: center; max-width: 360px; }
+  </style>
+</head>
+<body>
+  <h1>口语一键练</h1>
+  <p class="hint">选场景会自动记住，下次打开还在<br>点大圆按钮说话 → 说完自动打分<br>请用手机 <b>Chrome</b> 打开并允许麦克风</p>
+  <select id="scene">
+    <option value="daily">日常聊天</option>
+    <option value="interview">求职面试</option>
+    <option value="restaurant">餐厅</option>
+    <option value="airport">机场</option>
+    <option value="networking">商务寒暄</option>
+  </select>
+  <div class="row">
+    <button type="button" id="start">开始</button>
+    <button type="button" id="replay">再听问题</button>
+  </div>
+  <div class="qbox">
+    <div class="meta" id="meta">先点「开始」</div>
+    <p class="q" id="q">准备好后点开始</p>
+  </div>
+  <button type="button" id="mic" disabled>按住说话<br>或点一下</button>
+  <div id="heard"></div>
+  <div class="score" id="scoreBox">
+    <div class="big" id="score">—</div>
+    <div class="fb" id="fb"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+const BANK = {
+  daily: [
+    "How was your weekend?",
+    "What do you usually do after work?",
+    "What kind of food do you like?",
+    "Tell me about your hometown.",
+    "How do you usually learn English?",
+  ],
+  interview: [
+    "Please introduce yourself.",
+    "Why do you want this job?",
+    "What are your strengths?",
+    "Tell me about a challenge you solved.",
+    "Do you have any questions for us?",
+  ],
+  restaurant: [
+    "How many people in your party?",
+    "What would you like to drink?",
+    "Are you ready to order?",
+    "How is the food?",
+    "Would you like the check?",
+  ],
+  airport: [
+    "What is the purpose of your trip?",
+    "How long will you stay?",
+    "Do you have anything to declare?",
+    "Where is gate B12?",
+    "My flight is delayed. What should I do?",
+  ],
+  networking: [
+    "What brings you to this event?",
+    "What does your company do?",
+    "Are you working on anything exciting?",
+    "Would you like a follow-up call next week?",
+    "How can I reach you?",
+  ],
+};
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const sceneEl = document.getElementById("scene");
+const SAVE_KEY = "speakCoach.scene";
+try {
+  const saved = localStorage.getItem(SAVE_KEY);
+  if (saved && BANK[saved]) sceneEl.value = saved;
+} catch (_) {}
+sceneEl.addEventListener("change", () => {
+  try { localStorage.setItem(SAVE_KEY, sceneEl.value); } catch (_) {}
+});
+
+const mic = document.getElementById("mic");
+const qEl = document.getElementById("q");
+const meta = document.getElementById("meta");
+const heard = document.getElementById("heard");
+const scoreBox = document.getElementById("scoreBox");
+const scoreEl = document.getElementById("score");
+const fb = document.getElementById("fb");
+
+let qs = [], i = 0, active = false, rec = null, recording = false, pressTimer = null;
+
+function toast(t) {
+  const el = document.getElementById("toast");
+  el.textContent = t; el.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove("show"), 2500);
+}
+
+function speak(t) {
+  if (!speechSynthesis) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang = "en-US"; u.rate = 0.92;
+  speechSynthesis.speak(u);
+}
+
+function showQ() {
+  meta.textContent = `第 ${i + 1} / ${qs.length} 题 · 说完自动评分`;
+  qEl.textContent = qs[i];
+  heard.textContent = "";
+  scoreBox.classList.remove("show");
+  speak(qs[i]);
+}
+
+function start() {
+  if (!SR) {
+    toast("请用 Chrome 打开，当前环境不能录音");
+    return;
+  }
+  const sceneId = sceneEl.value;
+  try { localStorage.setItem(SAVE_KEY, sceneId); } catch (_) {}
+  qs = BANK[sceneId].slice();
+  i = 0; active = true;
+  mic.disabled = false;
+  showQ();
+  toast("可以点大圆按钮开始说了");
+}
+
+function grade(text) {
+  const t = text.trim().toLowerCase();
+  const words = t.split(/\s+/).filter(Boolean).length;
+  let s = 40;
+  if (words >= 5) s += 15;
+  if (words >= 12) s += 15;
+  if (/\b(because|so|and|but|for example)\b/.test(t)) s += 15;
+  if (words >= 8) s += 10;
+  if (words < 3) s = Math.min(s, 35);
+  s = Math.max(0, Math.min(100, s));
+  let tip = s >= 75 ? "不错，下题继续。" : s >= 50 ? "能听懂。试着多说一句 because…" : "太短了，至少说两整句。";
+  return { s, tip };
+}
+
+function nextOrEnd(text) {
+  const g = grade(text);
+  scoreEl.textContent = g.s;
+  fb.textContent = "听到：" + text + "\n" + g.tip;
+  scoreBox.classList.add("show");
+  speak(g.s >= 60 ? "Good. Next question." : "Try to say a bit more next time.");
+  i++;
+  if (i >= qs.length) {
+    active = false;
+    mic.disabled = true;
+    meta.textContent = "本轮结束";
+    qEl.textContent = "再点「开始」可重练";
+    setTimeout(() => speak("Session finished. Great job."), 1200);
+    return;
+  }
+  setTimeout(showQ, 1600);
+}
+
+async function micPermission() {
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) return true;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(t => t.stop());
+    return true;
+  } catch {
+    toast("请允许麦克风，否则没法练口语");
+    return false;
+  }
+}
+
+async function startRec() {
+  if (!active) { toast("先点「开始」"); return; }
+  if (recording) { try { rec.stop(); } catch {} return; }
+  if (!SR) { toast("请用 Chrome 打开本页"); return; }
+  if (!(await micPermission())) return;
+
+  rec = new SR();
+  rec.lang = "en-US";
+  rec.interimResults = true;
+  rec.continuous = false;
+  let finalText = "";
+
+  rec.onstart = () => {
+    recording = true;
+    mic.classList.add("rec");
+    mic.innerHTML = "正在听…<br>说完停一下";
+    heard.textContent = "聆听中…";
+  };
+  rec.onresult = (ev) => {
+    let interim = "";
+    for (let k = ev.resultIndex; k < ev.results.length; k++) {
+      const r = ev.results[k];
+      if (r.isFinal) finalText += r[0].transcript + " ";
+      else interim += r[0].transcript;
+    }
+    heard.textContent = (finalText + interim).trim();
+  };
+  rec.onerror = (ev) => {
+    recording = false;
+    mic.classList.remove("rec");
+    mic.innerHTML = "点一下说话";
+    toast(ev.error === "not-allowed" ? "麦克风被禁止" : "没听清，再点一次说");
+  };
+  rec.onend = () => {
+    recording = false;
+    mic.classList.remove("rec");
+    mic.innerHTML = "点一下说话";
+    const text = (finalText || heard.textContent || "").trim();
+    if (text) nextOrEnd(text);
+    else toast("没识别到，请靠近麦克风再说一次");
+  };
+  try { rec.start(); } catch { toast("启动失败，用 Chrome 重开本页"); }
+}
+
+function stopRec() {
+  if (recording && rec) try { rec.stop(); } catch {}
+}
+
+document.getElementById("start").onclick = start;
+document.getElementById("replay").onclick = () => active && speak(qs[i]);
+mic.addEventListener("click", startRec);
+// press-and-hold also works
+mic.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  if (!recording) startRec();
+}, { passive: false });
+mic.addEventListener("touchend", (e) => {
+  e.preventDefault();
+  setTimeout(stopRec, 300);
+});
+
+if (!SR) {
+  document.querySelector(".hint").innerHTML = "当前环境不能录音。请用手机 <b>Chrome</b> 打开本文件，或直接在 Grok Bot 里语音跟我练。";
+}
+</script>
+</body>
+</html>
