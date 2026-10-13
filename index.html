@@ -66,9 +66,9 @@
 </head>
 <body>
   <h1>听力一键练</h1>
-  <p class="hint">先听老师说（不看英文），听懂后再用英语回答<br>点「再听一遍」可重放 · 用手机 <b>Chrome</b></p>
+  <p class="hint">老师会主动用英语提问 → 你听懂后再用英语回答<br>点「再听一遍」可重放 · 用手机 <b>Chrome</b></p>
   <select id="scene">
-    <option value="askTeacher">向老师提问</option>
+    <option value="askTeacher">老师提问考你</option>
     <option value="daily">日常聊天</option>
     <option value="interview">求职面试</option>
     <option value="restaurant">餐厅</option>
@@ -95,11 +95,11 @@
 <script>
 const BANK = {
   askTeacher: [
-    { en: "What is your question about today's homework?", zh: "老师在问：作业相关的问题" },
-    { en: "Which part of the lesson was unclear for you?", zh: "老师在问：哪一段没听懂" },
-    { en: "Do you need more examples for this grammar?", zh: "老师在问：要不要多几个语法例子" },
-    { en: "When would you like to schedule office hours?", zh: "老师在问：什么时候来答疑" },
-    { en: "Can you explain what confused you in the reading?", zh: "老师在问：阅读哪里卡住了" },
+    { en: "What did you learn in class today?", zh: "老师问你：今天课上学会了什么" },
+    { en: "Can you summarize the main idea in your own words?", zh: "老师问你：用自己的话概括大意" },
+    { en: "Why is this example important?", zh: "老师问你：这个例子为什么重要" },
+    { en: "What would you do if you didn't understand the homework?", zh: "老师问你：作业听不懂你会怎么办" },
+    { en: "Please give one example from your daily life.", zh: "老师请你：举一个生活中的例子" },
   ],
   daily: [
     { en: "How was your weekend?", zh: "对方在问：周末过得怎样" },
@@ -214,7 +214,7 @@ function start() {
   i = 0; active = true;
   mic.disabled = false;
   showQ();
-  toast("先听完，再点大圆按钮用英语回答");
+  toast("老师正在提问，听完再点圆按钮回答");
 }
 
 function grade(text) {
